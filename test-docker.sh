@@ -14,14 +14,14 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 if [ ! -f .env ]; then
     log_warn "Creating .env file from template..."
     cat > .env << 'EOF'
-TWINT_MERCHANT_ID=test_merchant_id
-TWINT_API_KEY=test_api_key
-TWINT_API_SECRET=test_api_secret
-TWINT_CALLBACK_URL=http://localhost:5000/twint/callback
+STRIPE_SECRET_KEY=sk_test_your_secret_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+STRIPE_SUCCESS_URL=http://localhost:7070/payment/success?session_id={CHECKOUT_SESSION_ID}
+STRIPE_CANCEL_URL=http://localhost:7070/payment/cancel
 SESSION_DURATION=300
 LOG_LEVEL=DEBUG
 EOF
-    log_warn "Edit .env with your TWINT credentials for production use"
+    log_warn "Edit .env with your Stripe credentials for production use"
 fi
 
 log_info "Building Docker image..."
@@ -34,9 +34,9 @@ log_info "Waiting for service to start..."
 sleep 3
 
 log_info "Testing health endpoint..."
-if curl -s http://localhost:5000/health | grep -q "healthy"; then
+if curl -s http://localhost:7070/health | grep -q "healthy"; then
     log_info "Service is running!"
-    log_info "Access the portal at: http://localhost:5000"
+    log_info "Access the portal at: http://localhost:7070"
     log_info "View logs: docker-compose logs -f"
     log_info "Stop: docker-compose down"
 else

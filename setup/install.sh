@@ -61,10 +61,10 @@ bash "$SCRIPT_DIR/firewall.sh"
 log_info "Creating default configuration..."
 if [ ! -f "$CONFIG_DIR/config.env" ]; then
     cat > "$CONFIG_DIR/config.env" << 'EOF'
-TWINT_MERCHANT_ID=your_merchant_id_here
-TWINT_API_KEY=your_api_key_here
-TWINT_API_SECRET=your_api_secret_here
-TWINT_CALLBACK_URL=http://192.168.4.1/twint/callback
+STRIPE_SECRET_KEY=sk_test_your_secret_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+STRIPE_SUCCESS_URL=http://192.168.4.1/payment/success?session_id={CHECKOUT_SESSION_ID}
+STRIPE_CANCEL_URL=http://192.168.4.1/payment/cancel
 WIFI_SSID=GuestWiFi
 WIFI_PASSWORD=
 SESSION_DURATION=300
@@ -74,7 +74,7 @@ DATABASE_PATH=/var/lib/captive-portal/sessions.db
 LOG_LEVEL=INFO
 EOF
     chmod 600 "$CONFIG_DIR/config.env"
-    log_warn "Please edit $CONFIG_DIR/config.env with your TWINT credentials"
+    log_warn "Please edit $CONFIG_DIR/config.env with your Stripe credentials"
 fi
 
 log_info "Creating data directory..."
@@ -110,8 +110,8 @@ netfilter-persistent save
 
 log_info "Installation complete!"
 log_warn "Next steps:"
-echo "  1. Edit $CONFIG_DIR/config.env with your TWINT credentials"
-echo "  2. Configure your domain in TWINT dashboard"
+echo "  1. Edit $CONFIG_DIR/config.env with your Stripe credentials"
+echo "  2. Configure webhook endpoint in Stripe Dashboard"
 echo "  3. Reboot the system: sudo reboot"
 echo "  4. Connect to WiFi network 'GuestWiFi'"
 echo "  5. Test the captive portal"

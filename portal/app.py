@@ -3,7 +3,7 @@ import logging
 from flask import Flask, request, render_template, redirect, url_for, jsonify, session
 from dotenv import load_dotenv
 
-from twint_api import TwintAPI
+from stripe_api import StripeAPI
 from session_mgr import SessionManager
 
 load_dotenv('/etc/captive-portal/config.env')
@@ -17,11 +17,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-twint_api = TwintAPI(
-    merchant_id=os.getenv('TWINT_MERCHANT_ID'),
-    api_key=os.getenv('TWINT_API_KEY'),
-    api_secret=os.getenv('TWINT_API_SECRET'),
-    callback_url=os.getenv('TWINT_CALLBACK_URL')
+stripe_api = StripeAPI(
+    api_key=os.getenv('STRIPE_SECRET_KEY'),
+    webhook_secret=os.getenv('STRIPE_WEBHOOK_SECRET'),
+    success_url=os.getenv('STRIPE_SUCCESS_URL', 'http://192.168.4.1/payment/success?session_id={CHECKOUT_SESSION_ID}'),
+    cancel_url=os.getenv('STRIPE_CANCEL_URL', 'http://192.168.4.1/payment/cancel')
 )
 
 session_mgr = SessionManager(
@@ -89,19 +89,19 @@ def initiate_payment():
         return jsonify({'error': 'Already has active session'}), 400
     
     try:
-        payment_request = twint_api.create_payment_request(
+        checkout_session = stripe_api.create_checkout_session(
             amount=1.00,
-            currency='CHF',
-            reference=f'wifi-{client_ip}-{int(os.times()[0])}'
+            currency='chf',
+            client_ip=client_ip,
+            metadata={'client_ip': client_ip}
         )
         
-        session['payment_id'] = payment_request['payment_id']
+        session['checkout_session_id'] = checkout_session['session_id']
         session['client_ip'] = client_ip
         
         return jsonify({
-            'payment_url': payment_request['payment_url'],
-            'qr_code': payment_request.get('qr_code'),
-            'payment_id': payment_request['payment_id']
+            'checkout_url': checkout_session['checkout_url'],
+            'session_id': checkout_session['session_id']
         })
         
     except Exception as e:
@@ -109,52 +109,64 @@ def initiate_payment():
         return jsonify({'error': 'Payment initiation failed'}), 500
 
 
-@app.route('/twint/callback', methods=['POST'])
-def twint_callback():
+@app.route('/stripe/webhook', methods=['POST'])
+def stripe_webhook():
+    payload = request.get_data(as_text=True)
+    sig_header = request.headers.get('Stripe-Signature')
+    
     try:
-        data = request.get_json()
-        logger.info(f"TWINT callback received: {data}")
-        
-        payment_id = data.get('payment_id')
-        status = data.get('status')
-        
-        if not payment_id or not status:
-            return jsonify({'error': 'Invalid callback data'}), 400
-        
-        if status == 'approved':
-            client_ip = session.get('client_ip')
-            if not client_ip:
-                stored_payment = session_mgr.get_payment(payment_id)
-                if stored_payment:
-                    client_ip = stored_payment['client_ip']
-            
-            if client_ip:
-                session_mgr.create_session(client_ip, payment_id)
-                session_mgr.update_payment_status(payment_id, 'completed')
-                logger.info(f"Session created for {client_ip} after payment {payment_id}")
-                return jsonify({'status': 'success', 'message': 'Payment approved'})
-            else:
-                logger.error(f"No client IP found for payment {payment_id}")
-                return jsonify({'error': 'No client IP found'}), 400
-        else:
-            session_mgr.update_payment_status(payment_id, status)
-            logger.warning(f"Payment {payment_id} status: {status}")
-            return jsonify({'status': 'received', 'message': f'Payment {status}'})
-            
+        event = stripe_api.verify_webhook(payload, sig_header)
+    except ValueError as e:
+        return jsonify({'error': 'Invalid payload'}), 400
     except Exception as e:
-        logger.error(f"Callback error: {e}")
-        return jsonify({'error': 'Callback processing failed'}), 500
+        return jsonify({'error': 'Invalid signature'}), 400
+    
+    if event['type'] == 'checkout.session.completed':
+        checkout_session = event['data']['object']
+        client_ip = checkout_session.get('client_reference_id')
+        session_id = checkout_session.get('id')
+        
+        if not client_ip:
+            metadata = checkout_session.get('metadata', {})
+            client_ip = metadata.get('client_ip')
+        
+        if client_ip:
+            session_mgr.create_session(client_ip, session_id)
+            logger.info(f"Session created for {client_ip} after payment {session_id}")
+        else:
+            logger.error(f"No client IP found for session {session_id}")
+    
+    elif event['type'] == 'checkout.session.expired':
+        checkout_session = event['data']['object']
+        session_id = checkout_session.get('id')
+        logger.warning(f"Checkout session expired: {session_id}")
+    
+    return jsonify({'status': 'success'}), 200
 
 
-@app.route('/payment/status/<payment_id>')
-def payment_status(payment_id):
-    payment = session_mgr.get_payment(payment_id)
-    if payment:
-        return jsonify({
-            'status': payment['status'],
-            'client_ip': payment['client_ip']
-        })
-    return jsonify({'error': 'Payment not found'}), 404
+@app.route('/payment/success')
+def payment_success():
+    session_id = request.args.get('session_id')
+    client_ip = request.headers.get('X-Real-IP', request.remote_addr)
+    
+    if session_id:
+        try:
+            checkout_session = stripe_api.get_session(session_id)
+            if checkout_session.payment_status == 'paid':
+                active_session = session_mgr.get_active_session(client_ip)
+                if active_session:
+                    return render_template('active.html',
+                                         expires_at=active_session['expires_at'],
+                                         client_ip=client_ip)
+        except Exception as e:
+            logger.error(f"Failed to verify payment: {e}")
+    
+    return render_template('success.html', client_ip=client_ip)
+
+
+@app.route('/payment/cancel')
+def payment_cancel():
+    return render_template('cancel.html')
 
 
 @app.route('/session/check')

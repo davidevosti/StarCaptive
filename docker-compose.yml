@@ -6,10 +6,10 @@ services:
     volumes:
       - ./data:/data
     environment:
-      - TWINT_MERCHANT_ID=${TWINT_MERCHANT_ID:-test_merchant}
-      - TWINT_API_KEY=${TWINT_API_KEY:-test_key}
-      - TWINT_API_SECRET=${TWINT_API_SECRET:-test_secret}
-      - TWINT_CALLBACK_URL=${TWINT_CALLBACK_URL:-http://localhost:5000/twint/callback}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      - STRIPE_SUCCESS_URL=${STRIPE_SUCCESS_URL:-http://localhost:7070/payment/success?session_id={CHECKOUT_SESSION_ID}}
+      - STRIPE_CANCEL_URL=${STRIPE_CANCEL_URL:-http://localhost:7070/payment/cancel}
       - SESSION_DURATION=${SESSION_DURATION:-300}
       - DATABASE_PATH=/data/sessions.db
       - LOG_LEVEL=${LOG_LEVEL:-INFO}

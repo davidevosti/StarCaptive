@@ -15,7 +15,7 @@ pip install -r requirements.txt
 2. Create a local config file:
 ```bash
 cp config.env.example config.env
-# Edit config.env with your TWINT credentials
+# Edit config.env with your Stripe credentials
 ```
 
 3. Run the Flask app:
@@ -24,6 +24,16 @@ python app.py
 ```
 
 4. Access the portal at: http://localhost:5000
+
+## Docker Testing
+
+For quick testing with Docker:
+
+```bash
+./test-docker.sh
+```
+
+Access the portal at: http://localhost:7070
 
 ## Production Setup (Raspberry Pi)
 
@@ -40,7 +50,7 @@ cd wifi
 sudo ./setup/install.sh
 ```
 
-5. Configure TWINT credentials:
+5. Configure Stripe credentials:
 ```bash
 sudo nano /etc/captive-portal/config.env
 ```
@@ -53,14 +63,14 @@ sudo reboot
 7. Connect to the "GuestWiFi" network from any device
 8. The captive portal should appear automatically
 
-## Testing TWINT Integration
+## Testing Stripe Integration
 
 ### Test Mode
 
-For testing without real payments, you can use TWINT's test environment:
+For testing without real payments, use Stripe test mode:
 
-1. Update `config.env` with test credentials
-2. Use TWINT test app for payments
+1. Update `config.env` with test credentials (sk_test_...)
+2. Use Stripe test card numbers (e.g., 4242 4242 4242 4242)
 3. Check logs: `sudo journalctl -u captive-portal -f`
 
 ### Manual Testing
@@ -75,6 +85,17 @@ Check session status:
 ```bash
 curl http://localhost:5000/session/check
 ```
+
+## Stripe Webhook Setup
+
+For production, configure webhooks in your Stripe Dashboard:
+
+1. Go to Developers > Webhooks
+2. Add endpoint: `https://your-domain.com/stripe/webhook`
+3. Select events:
+   - `checkout.session.completed`
+   - `checkout.session.expired`
+4. Copy the webhook signing secret to your config
 
 ## Troubleshooting
 
@@ -104,6 +125,18 @@ sqlite3 /var/lib/captive-portal/sessions.db
 SELECT * FROM sessions;
 ```
 
+### Stripe webhook not working
+```bash
+# Check webhook logs
+sudo journalctl -u captive-portal -f | grep webhook
+
+# Test webhook signature
+curl -X POST http://localhost:5000/stripe/webhook \
+  -H "Content-Type: application/json" \
+  -H "Stripe-Signature: test_signature" \
+  -d '{"type": "checkout.session.completed"}'
+```
+
 ## Logs
 
 View all logs:
@@ -116,10 +149,11 @@ sudo journalctl -u dnsmasq -f
 ## Security Checklist
 
 - [ ] Change default WiFi SSID
-- [ ] Set strong TWINT API credentials
+- [ ] Set strong Stripe API credentials
 - [ ] Enable HTTPS (Let's Encrypt)
 - [ ] Configure firewall rules
 - [ ] Regular system updates
 - [ ] Monitor logs for suspicious activity
 - [ ] Implement rate limiting
 - [ ] Backup database regularly
+- [ ] Configure Stripe webhooks with signing secret
