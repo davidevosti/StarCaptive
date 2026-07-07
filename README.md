@@ -29,12 +29,38 @@ A captive portal system for Raspberry Pi that provides WiFi access to guests for
 └── systemd/            # Systemd service files
 ```
 
+## Docker Testing
+
+Test the application locally using Docker (no Raspberry Pi required):
+
+```bash
+# Quick start
+./test-docker.sh
+
+# Or manually
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+Access the portal at http://localhost:5000
+
+Configure TWINT credentials in `.env` file (created automatically on first run).
+
 ## Prerequisites
 
 - Raspberry Pi 3B+ or later (with WiFi)
 - Raspberry Pi OS (Bullseye or later)
 - TWINT merchant account and API credentials
 - Internet connection for initial setup
+
+**For Docker testing:**
+- Docker and Docker Compose
+- No Raspberry Pi required
 
 ## Installation
 

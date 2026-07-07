@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  captive-portal:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/data
+    environment:
+      - TWINT_MERCHANT_ID=${TWINT_MERCHANT_ID:-test_merchant}
+      - TWINT_API_KEY=${TWINT_API_KEY:-test_key}
+      - TWINT_API_SECRET=${TWINT_API_SECRET:-test_secret}
+      - TWINT_CALLBACK_URL=${TWINT_CALLBACK_URL:-http://localhost:5000/twint/callback}
+      - SESSION_DURATION=${SESSION_DURATION:-300}
+      - DATABASE_PATH=/data/sessions.db
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    restart: unless-stopped

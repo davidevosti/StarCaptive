@@ -1,0 +1,12 @@
+.git
+.gitignore
+*.md
+setup/
+config/
+systemd/
+data/
+*.env
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
