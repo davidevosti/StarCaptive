@@ -1,0 +1,10 @@
+[Unit]
+Description=Captive Portal Session Cleaner
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/captive-portal/portal
+Environment="PATH=/etc/captive-portal/venv/bin"
+ExecStart=/etc/captive-portal/venv/bin/python -c "from session_mgr import SessionManager; import os; sm = SessionManager(os.getenv('DATABASE_PATH', '/var/lib/captive-portal/sessions.db')); sm.cleanup_expired_sessions()"

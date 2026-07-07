@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Access - Active Session</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo svg {
+            width: 60px;
+            height: 60px;
+            fill: #11998e;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status {
+            background: #e8f5e9;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .status-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .status-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2e7d32;
+        }
+        
+        .timer {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .timer-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .timer-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #11998e;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .timer-expire {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            color: #333;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 13px;
+            text-align: center;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #11998e, #38ef7d);
+            transition: width 1s linear;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+        </div>
+        
+        <h1>WiFi Access Active</h1>
+        <p class="subtitle">You are now connected to the internet</p>
+        
+        <div class="status">
+            <div class="status-icon">✓</div>
+            <div class="status-text">Connected</div>
+        </div>
+        
+        <div class="timer">
+            <div class="timer-label">Time remaining</div>
+            <div class="timer-value" id="timer">05:00</div>
+            <div class="timer-expire">Expires at: <span id="expires">{{ expires_at }}</span></div>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress"></div>
+        </div>
+        
+        <div class="info">
+            Your IP: {{ client_ip }}<br>
+            Session will expire automatically
+        </div>
+    </div>
+
+    <script>
+        const TOTAL_DURATION = 300;
+        let remainingSeconds = TOTAL_DURATION;
+        
+        function updateTimer() {
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            
+            document.getElementById('timer').textContent = 
+                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            const progress = ((TOTAL_DURATION - remainingSeconds) / TOTAL_DURATION) * 100;
+            document.getElementById('progress').style.width = `${progress}%`;
+            
+            if (remainingSeconds <= 0) {
+                window.location.reload();
+            } else {
+                remainingSeconds--;
+            }
+        }
+        
+        async function checkSession() {
+            try {
+                const response = await fetch('/session/check');
+                const data = await response.json();
+                
+                if (!data.active) {
+                    window.location.reload();
+                } else {
+                    remainingSeconds = data.remaining_seconds;
+                }
+            } catch (err) {
+                console.error('Session check failed:', err);
+            }
+        }
+        
+        updateTimer();
+        setInterval(updateTimer, 1000);
+        setInterval(checkSession, 10000);
+    </script>
+</body>
+</html>
